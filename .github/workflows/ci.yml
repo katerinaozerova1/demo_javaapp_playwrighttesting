@@ -12,10 +12,6 @@
 name: CI
 
 on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
   workflow_dispatch:
 
 jobs:
@@ -122,7 +118,6 @@ jobs:
           SL_BUILD_SESSION_ID: ${{ secrets.SL_BUILD_SESSION_ID }}
           SL_PROXY: ${{ secrets.SL_PROXY }}
         run: npm test
-
       - name: Stop app
         if: always()
         run: kill "$APP_PID" 2>/dev/null || true
