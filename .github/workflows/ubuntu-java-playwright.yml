@@ -8,7 +8,7 @@
 # Docs: https://docs.sealights.io/knowledgebase/setup-and-configuration/sealights-agents-and-plugins/cd-agent/cd-agent-for-java-application
 #
 # Secrets: SL_TOKEN, SL_LAB_ID (same lab id as in SeaLights Integration Build / CD Only setup)
-name: CI
+name: CI (Ubuntu)
 
 on:
   workflow_dispatch:
