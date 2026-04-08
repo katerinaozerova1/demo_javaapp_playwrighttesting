@@ -1,14 +1,12 @@
-# SeaLights CD Agent for Java — aligned with working "CD Only + functional tests" pattern:
-# - token file (sltoken.txt) + -Dsl.tokenFile
-# - unzip agent to sealights-cd-agent/sl-cd-agent.jar
-# - -Dsl.buildname / -Dsl.branchname (lowercase; working flows use these, not sl.buildName)
-# - -Dsl.includes=com.example.* (no leading *)
-# - mvn clean package
+# Same as ci.yml, but verbose SeaLights / Node test-runner logging for troubleshooting.
+# Run manually: Actions → "CI (debug logs)" → Run workflow
 #
-# Docs: https://docs.sealights.io/knowledgebase/setup-and-configuration/sealights-agents-and-plugins/cd-agent/cd-agent-for-java-application
+# Playwright step sets:
+#   NODE_DEBUG=sl          — Node debug channel for SeaLights-related internals (slnodejs / plugin)
+#   SL_LOG_LEVEL=debug     — SeaLights client log level
 #
-# Secrets: SL_TOKEN, SL_LAB_ID (same lab id as in SeaLights Integration Build / CD Only setup)
-name: CI (Ubuntu)
+# Secrets: same as ci.yml (SL_TOKEN, SL_LAB_ID, optional SL_PROXY, SL_BUILD_SESSION_ID)
+name: CI (debug logs)
 
 on:
   workflow_dispatch:
@@ -26,6 +24,22 @@ jobs:
         run: |
           echo -n "${{ secrets.SL_TOKEN }}" > sltoken.txt
           chmod 600 sltoken.txt
+
+      - name: Verify Actions secrets are available
+        env:
+          SL_LAB_ID: ${{ secrets.SL_LAB_ID }}
+        run: |
+          if [ ! -s sltoken.txt ]; then
+            echo "::error::SL_TOKEN is empty or not set for this workflow run."
+            echo "Fix: Repository → Settings → Secrets and variables → **Actions** → Repository secrets → create SL_TOKEN"
+            echo "(Not Dependabot / Codespaces. If using Environment secrets, add 'environment: <name>' to this job.)"
+            exit 1
+          fi
+          if [ -z "$SL_LAB_ID" ]; then
+            echo "::error::SL_LAB_ID is empty or not set."
+            echo "Fix: same Actions → Repository secrets page → create SL_LAB_ID"
+            exit 1
+          fi
 
       - name: Download SeaLights CD Agent
         run: |
@@ -55,8 +69,8 @@ jobs:
           TOKEN_FILE="${GITHUB_WORKSPACE}/sltoken.txt"
 
           if [ ! -s "$TOKEN_FILE" ] || [ -z "$SL_LAB_ID" ]; then
-            echo "::warning::SL_TOKEN or SL_LAB_ID missing — starting without CD agent (no SeaLights build registration)."
-            java -jar "$JAR" &
+            echo "::error::Secrets check failed unexpectedly; token file or SL_LAB_ID empty."
+            exit 1
           else
             echo "Starting JVM with SeaLights CD Agent (sl.appName=calculator-demo, sl.labId from secret, sl.buildname=${{ github.run_number }}, sl.branchname=${{ github.ref_name }})"
             JAVA_OPTS=(
@@ -103,11 +117,13 @@ jobs:
         working-directory: playwright
         run: npx playwright install chromium --with-deps
 
-      - name: Run Playwright tests (sealights-playwright-plugin)
+      - name: Run Playwright tests (sealights-playwright-plugin, debug logging)
         working-directory: playwright
         env:
           BASE_URL: http://127.0.0.1:8080
           CI: true
+          NODE_DEBUG: sl
+          SL_LOG_LEVEL: debug
           SL_TOKEN: ${{ secrets.SL_TOKEN }}
           SL_LAB_ID: ${{ secrets.SL_LAB_ID }}
           SL_TEST_STAGE: github-actions
